@@ -1,9 +1,33 @@
 # CutKit (Premiere Pro panel)
 
-
 A separate panel for **Premiere Pro 2025+** that cuts talking-head footage: silences, filler words, retakes and false starts.
-Install with **Install CutKit on Mac.command** (it also installs ffmpeg and Whisper and downloads the Whisper model, 1.6 GB, once),
-restart Premiere, then **Window > Extensions > CutKit by Vlad**.
+
+## Install (macOS)
+
+**You need:** Premiere Pro 2025 or newer, [Homebrew](https://brew.sh) (the installer uses it for ffmpeg and Whisper), and about 2 GB of free space (the speech model is 1.6 GB). For retake detection you also need to be signed in to Claude (the Claude desktop app); silence and filler cuts work without it.
+
+**1. Download CutKit** (pick one):
+
+- Terminal:
+  ```bash
+  git clone https://github.com/lilvlad/CutKit-Consulting.git ~/CutKit
+  ```
+- or click **Code > Download ZIP** on GitHub, unzip it, and move the folder somewhere permanent (e.g. Documents).
+
+**2. Run the installer:**
+
+```bash
+bash ~/CutKit/"Install CutKit on Mac.command"
+```
+
+(If you downloaded the ZIP, right-click `Install CutKit on Mac.command` > **Open** instead, or run `bash` followed by the file's path.)
+
+**3. Restart Premiere Pro**, then open **Window > Extensions > CutKit by Vlad**.
+
+The installer links Adobe's extensions folder to the CutKit folder instead of copying it, so **don't move or delete the folder** afterwards. The first run downloads the Whisper model (1.6 GB, once).
+
+**Update:** `cd ~/CutKit && git pull`, then reopen the panel.
+
 
 1. Open the sequence, pick the **Voice Track** (the audio track with the voice) and press **Analyze**. The audio is pulled out
    with ffmpeg and transcribed with Whisper on this Mac (about 5 s per minute of footage the first time, instant after that).
