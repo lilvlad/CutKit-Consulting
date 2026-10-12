@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CutKit by Vlad</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="rail" aria-label="CutKit sections">
+    <button class="rail-btn active" data-view="cut" title="Cut: silences, fillers, takes, swears" aria-label="Cut"></button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" data-action="adj" id="rail-adj" title="New Adjustment Layer: over the selected clips (same length), or 7 s from the playhead when nothing is selected. Lands on the first free video track above the footage.&#10;Shift-click: with a Transform effect on it." aria-label="New adjustment layer"></button>
+    <div class="rail-spacer"></div>
+    <button class="rail-btn" data-view="settings" title="Settings" aria-label="Settings"></button>
+  </nav>
+
+  <div class="views">
+  <div class="view" id="view-cut">
+  <header class="bar">
+    <h1>CutKit <span class="sub" id="seq-name"></span></h1>
+    <button class="icon-btn" id="refresh" title="Re-read the active sequence" aria-label="Re-read the active sequence">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>
+    </button>
+  </header>
+
+  <section class="top">
+    <div class="row">
+      <label class="field grow">Voice Track
+        <select id="ref-track" title="The audio track with the voice. Its audio decides where to cut; every track is cut the same way."></select>
+      </label>
+      <button class="btn primary" id="analyze">Analyze</button>
+    </div>
+    <div class="row" id="inner-row" hidden>
+      <label class="field grow" title="This track holds nested sequences. Pick the audio track inside them that has the voice.">Inside <span class="inner-name" id="inner-name"></span>
+        <select id="inner-track"></select>
+      </label>
+    </div>
+    <div class="row" id="scope-row">
+      <label class="check small" title="Only cut between the sequence's In and Out points (I and O in Premiere). Handy to try settings on a few minutes first."><input type="checkbox" id="scope"> Only Between In/Out</label>
+      <span class="hint-inline" id="scope-info"></span>
+    </div>
+    <div class="prog" id="prog" hidden>
+      <div class="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
+      <div class="prog-text" id="prog-text"></div>
+    </div>
+    <p class="hint" id="intro">Open a sequence, pick the track with the voice and press <b>Analyze</b>. CutKit transcribes it on this Mac, then shows what it would cut. Nothing changes in Premiere until you press <b>Cut Sequence</b>.</p>
+    <div class="warn" id="seq-warn" hidden></div>
+  </section>
+
+  <nav class="tabs" id="tabs" role="tablist" aria-label="CutKit tools">
+    <button role="tab" data-tab="cut" class="on">Cut</button>
+    <button role="tab" data-tab="takes">Takes<span class="badge" id="b-takes"></span></button>
+    <button role="tab" data-tab="swears">Swears<span class="badge" id="b-swears"></span></button>
+  </nav>
+
+  <div class="pane" id="pane-cut">
+  <section class="detect" id="detect" hidden>
+    <div class="det">
+      <label class="check"><input type="checkbox" id="on-silence"> <span class="dot" style="--k:#6f8fb3"></span>Silences</label>
+      <span class="count" id="n-silence"></span>
+      <button class="icon-btn small fold" id="sil-fold" title="Show or hide the silence settings" aria-label="Silence settings" aria-expanded="true">▾</button>
+      <div class="det-opts" id="sil-opts">
+        <div class="seg" id="tight" role="group" aria-label="Cut tightness"></div>
+        <label class="field" title="Quieter than this counts as silence. Drag the line in the chart below too.">Below <input type="number" id="thr" step="1" min="-80" max="-10"> dB</label>
+        <label class="check small" title="Pick the level between the room noise and the voice"><input type="checkbox" id="thr-auto"> Auto</label>
+        <label class="field" title="Only pauses at least this long are cut">Longer Than <input type="number" id="min-sil" step="0.05" min="0.1" max="5"> s</label>
+        <label class="field" title="How much of the pause stays after the last word before the cut (its tail, breath out)">Keep After Words <input type="number" id="tail" step="10" min="0" max="1000"> ms</label>
+        <label class="field" title="How much of the pause stays before the next word after the cut (its lead-in, breath in)">Keep Before Words <input type="number" id="lead" step="10" min="0" max="1000"> ms</label>
+        <canvas id="hist" height="34" aria-label="How often each loudness occurs, with the silence threshold. Drag to change it."></canvas>
+      </div>
+    </div>
+    <div class="det">
+      <label class="check"><input type="checkbox" id="on-filler"> <span class="dot" style="--k:#e8a64f"></span>Filler Words</label>
+      <span class="count" id="n-filler"></span>
+      <button class="btn small" id="filler-edit" title="Add your own filler words or phrases (like, you know…)">Words…</button>
+      <button class="btn small" id="filler-mark" title="Put a yellow marker on every filler word instead of (or before) cutting it">Markers</button>
+    </div>
+    <div class="det">
+      <label class="check"><input type="checkbox" id="on-takes"> <span class="dot" style="--k:#e5675e"></span>Retakes &amp; False Starts <span class="hint-inline">Claude</span></label>
+      <span class="count" id="n-takes"></span>
+    </div>
+    <div class="det swear-row">
+      <span class="check plain"><span class="dot" style="--k:#e5484d"></span>Swear Words</span>
+      <span class="count" id="n-swear"></span>
+      <button class="btn small" id="swear-mark" title="Put a red marker on every swear word in the sequence (the word is not cut)">Add Red Markers</button>
+    </div>
+  </section>
+
+  <section class="strip-wrap" id="strip-wrap" hidden>
+    <div class="strip-bar">
+      <button class="icon-btn small" id="z-out" title="Zoom out (or scroll on the waveform)" aria-label="Zoom out">−</button>
+      <button class="icon-btn small" id="z-in" title="Zoom in (or scroll on the waveform)" aria-label="Zoom in">+</button>
+      <button class="icon-btn small" id="z-fit" title="Show the whole sequence (double-click the waveform)" aria-label="Show all">⤢</button>
+      <span class="view-range" id="view-range"></span>
+      <span class="grow"></span>
+      <button class="icon-btn small" id="c-prev" title="Previous cut: zoom to it and move Premiere's playhead just before it. Space then plays it in Premiere." aria-label="Previous cut">‹</button>
+      <span class="cut-nav" id="cut-nav"></span>
+      <button class="icon-btn small" id="c-next" title="Next cut. Space then plays it in Premiere." aria-label="Next cut">›</button>
+    </div>
+    <canvas id="strip" height="76" aria-label="Waveform of the voice track with the planned cuts. Scroll to zoom, drag to move, click to move the playhead."></canvas>
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <main class="transcript" id="transcript" hidden aria-label="Transcript"></main>
+
+  <footer class="foot" id="foot" hidden>
+    <div class="foot-opts">
+      <label class="check" title="Before cutting, duplicate the sequence into a 'CutKit Backups' bin"><input type="checkbox" id="backup"> Keep a Backup</label>
+      <label class="check" id="xfade-label" title="Put an audio transition on every audio cut to smooth it (Premiere's default transition)"><input type="checkbox" id="xfade"> Audio Crossfades</label>
+      <label class="field small-field" id="xfade-len" title="Crossfade length in frames (from Premiere's default audio transition)"><input type="number" id="xfade-frames" step="1" min="1" max="60"> f</label>
+    </div>
+    <div class="foot-btns">
+      <button class="btn" id="undo-cut" hidden title="Put the sequence from before the last cut back (from its backup); the cut version is kept in CutKit Backups">Undo Last Cut</button>
+      <button class="btn danger" id="cut">Cut Sequence</button>
+    </div>
+  </footer>
+  </div>
+
+  <div class="pane scroll-pane" id="pane-takes" hidden></div>
+  <div class="pane scroll-pane" id="pane-swears" hidden></div>
+  </div>
+
+
+
+  <div class="view" id="view-settings" hidden>
+    <header class="bar"><h1>Settings</h1></header>
+    <div class="scroll-pane">
+      <h2>Developer</h2>
+      <div class="row">
+        <button class="btn" id="set-reload-panel" title="Reload CutKit with its latest files, without restarting Premiere">Reload Panel</button>
+        <button class="btn" id="set-reload-host" title="Load CutKit's Premiere script (host/ck_main.jsx) again, keeping the panel as it is">Reload Premiere Scripts</button>
+      </div>
+      <p class="hint" id="set-hint">Reload Panel picks up changes to CutKit's files and keeps your settings. The current analysis is cleared, so analyze again afterwards.</p>
+      <h2>Word Timing</h2>
+      <label class="field grow" title="How CutKit finds where each word starts and ends. Silence cuts never touch a word, so better timing means tighter cuts that stay safe.">
+        <select id="set-engine">
+          <option value="align">Whisper + Word Aligner (recommended)</option>
+          <option value="crisper">CrisperWhisper (most precise, personal projects only)</option>
+          <option value="whisper">Whisper only (fastest)</option>
+        </select>
+      </label>
+      <p class="hint" id="set-engine-hint"></p>
+      <h2>Adjustment Layer</h2>
+      <label class="field" title="How long the sidebar's adjustment layer is when no clip is selected (it starts at the playhead)">Length With Nothing Selected <input type="number" id="set-adj-len" step="1" min="1" max="600"> s</label>
+      <p class="hint">With clips selected, the adjustment layer covers them exactly instead.</p>
+      <h2>Claude</h2>
+      <p class="hint" id="set-cc-status">Checking Claude Code…</p>
+      <div class="row">
+        <button class="btn primary" id="set-cc-login" title="Opens Terminal and your browser to sign Claude Code in. CutKit never sees your password." hidden>Sign in</button>
+        <button class="btn" id="set-cc-switch" title="Sign out, then sign in again (pick another account or organisation)" hidden>Switch Account</button>
+        <button class="btn" id="set-cc-check" title="Check the sign-in again">Check Again</button>
+      </div>
+      <p class="hint">Retakes use Claude Code (the copy inside the Claude desktop app). Click Sign in, finish in the browser, then Check Again.</p>
+      <h2>Data folder</h2>
+      <p class="path" id="set-data"></p>
+      <div class="row"><button class="btn" id="set-data-open">Show in Finder</button></div>
+      <p class="hint">Settings, the transcript cache and the Whisper model live here.</p>
+      <h2>About</h2>
+      <p class="hint" id="set-about"></p>
+    </div>
+  </div>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite">Ready.</div>
+
+  <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <div class="row end">
+        <button class="btn ghost" id="modal-cancel">Cancel</button>
+        <button class="btn primary" id="modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+  <div class="tip" id="tip" hidden role="tooltip"></div>
+
+<script src="js/bridge.js"></script>
+<script src="js/media.js"></script>
+<script src="js/detect.js"></script>
+<script src="js/claude.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/main.js"></script>
+<script src="js/takes.js"></script>
+<script src="js/swears.js"></script>
+<script src="js/adjust.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>
